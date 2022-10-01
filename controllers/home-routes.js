@@ -1,36 +1,132 @@
-// import router and models
-const router = require("express").Router();
-const { Post, Comment, User } = require("../models/");
- 
-router.get("/", (req, res) => {
- //for the homepage root path, find all Posts
- Post.findAll({
-   include: [User],
- })
-   .then((dbPostData) => {
-     const posts = dbPostData.map((post) => post.get({ plain: true }));
-	// pass in all posts data into the ‘all-posts’ template
-     res.render("all-posts", { posts });
-   })
-   .catch((err) => {
-     res.status(500).json(err);
-   });
+const router = require('express').Router();
+const { Post, User, Comment } = require('../models');
+
+//Home route to get all posts
+router.get('/', (req, res) => {
+    Post.findAll({
+        attributes: [
+            'id',
+            'title',
+            'content',
+            'created_at'
+        ],
+        include: [
+            {
+                model: Comment,
+                attributes: ['id', 'comment_text', 'post_id', 'user_id', 'created_at'],
+                include: {
+                    model: User,
+                    attributes: ['username']
+                }
+            },
+            {
+                model: User,
+                attributes: ['username']
+            }
+        ]
+    }).then(dbPostData => {
+        const posts = dbPostData.map(post => post.get({ plain: true }));
+        res.render('homepage', { posts, loggedIn: req.session.loggedIn} );
+    })
+    .catch(err => {
+        console.log(err);
+        res.status(500).json(err);
+    });
 });
 
-router.get("/post/:id", (req, res) => {
-    //follow a similar pattern to the homepage route. 
-    //get the data using the id in params, then pass it into the ‘single-post’ view
-   Post.findByPk(req.params.id, { …})  
-   res.render("single-post", { post });
-  })
-
-  router.get("/login", (req, res) => {
+//home login page route
+router.get('/login', (req, res) => {
     if (req.session.loggedIn) {
-      res.redirect("/");
-      return;
+        res.redirect('/');
+        return;
     }
-    
-    res.render("login");
-   });
-   
-   module.exports = router;
+    res.render('login');
+});
+
+//route to the signup page
+router.get('/signup', (req, res) => {
+    res.render('signup');
+});
+
+//route to pull post to the homepage
+router.get('/post/:id', (req, res) => {
+    Post.findOne({
+        where: {
+            id: req.params.id
+        },
+        attributes: [
+            'id',
+            'title',
+            'content',
+            'created_at'
+        ],
+        include: [
+            {
+                model: Comment,
+                attributes: ['id', 'comment_text', 'post_id', 'user_id', 'created_at'],
+                include: {
+                    model: User,
+                    attributes: ['username']
+                }
+            },
+            {
+                model: User,
+                attributes: ['username']
+            }
+        ]
+    }).then(dbPostData => {
+        if (!dbPostData) {
+            res.status(404).json({ message: 'No post found matching this id' });
+            return;
+        }
+        const post = dbPostData.get({ plain: true });
+        console.log(post);
+        res.render('single-post', {post, loggedIn: req.session.loggedIn });
+    })
+    .catch(err => {
+        console.log(err);
+        res.status(500).json(err);
+    });
+});
+
+//route to get all post comment data onto home page
+router.get('/posts-comments', (req, res) => {
+    Post.findOne({
+        where: {
+            id: req.params.id
+        },
+        attributes: [
+            'id',
+            'content',
+            'title',
+            'created_at'
+        ],
+        include: [
+            {
+                model: Comment,
+                attributes: ['id', 'comment_text', 'post_id', 'user_id', 'created_at'],
+                include: {
+                    model: User,
+                    attributes: ['username']
+                }
+            },
+            {
+                model: User, 
+                attributes: ['username']
+            }
+        ]
+    }).then(dbPostData => {
+        if (!dbPostData) {
+            res.status(404).json({ message: 'No posts found matching this id' });
+            return;
+        }
+        const post = dbPostData.get({ plain: true });
+        res.render('posts-comments', { post, loggedIn: req.session.loggedIn });
+    })
+    .catch(err => {
+        console.log(err);
+        res.status(500).json(err);
+    });
+});
+
+module.exports = router;

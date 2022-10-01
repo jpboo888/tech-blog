@@ -1,19 +1,142 @@
-router.post("/", (req, res) => { 
-    const body = req.body;
-    Post.create({ ...body, userId: req.session.userId })
-      .then(newPost => {
-        res.json(newPost);
-      })
-      .catch(err => {
+const router = require('express').Router();
+const { Post, Comment, User } = require('../../models');
+const withAuth = require('../../utils/auth');
+
+//  find all post
+router.get('/', (req, res) => {
+    Post.findAll({
+        attributes: 
+        [
+            'id',
+            'title',
+            'content',
+            'created_at'
+        ],
+        order: [
+            ['created_at', 'DESC']
+        ],
+        include: 
+        [
+            {
+                model: User,
+                attributes: ['username']
+            },
+            {
+                model: Comment,
+                attributes: ['id', 'comment_text', 'post_id', 'user_id', 'created_at'],
+                include: 
+                {
+                    model: User,
+                    attributes: ['username']
+                }
+            }
+        ]
+    })
+    .then(dbPostData => res.json(dbPostData.reverse()))
+    .catch(err => {
+        console.log(err);
         res.status(500).json(err);
-      });
-   });
-    
-   router.put("/:id", (req, res) => {
-       Post.update() // fill in this code
-   });
-    
-   router.delete("/:id", withAuth, (req, res) => {
-    Post.destroy() // fill in this code
-     });
-   
+    });
+});
+
+//  find a specific post
+router.get('/:id', (req, res) => {
+    Post.findOne({
+        where:
+        {
+            id: req.params.id
+        },
+        attributes: 
+        [
+            'id',
+            'content',
+            'title',
+            'created_at'
+        ],
+        include:
+        [
+            {
+                model: User,
+                attributes: ['username']
+            },
+            {
+                model: Comment,
+                attributes: ['id', 'comment_text', 'post_id', 'user_id', 'created_at'],
+                include: 
+                {
+                    model: User,
+                    attributes: ['username']
+                }
+            }
+        ]
+    })
+    .then(dbPostData => {
+        if (!dbPostData) {
+            res.status(404).json({ message: 'No post found matching this id' });
+            return;
+        }
+        res.json(dbPostData);
+    })
+    .catch(err => {
+        console.log(err);
+        res.status(500).json(err);
+    });
+});
+
+//  create a post
+router.post('/', withAuth, (req, res) => {
+    Post.create({
+        title: req.body.title,
+        content: req.body.content,
+        user_id: req.body.user_id
+    })
+    .then(dbPostData => res.json(dbPostData))
+    .catch(err => {
+        console.log(err);
+        res.status(500).json(err);
+    });
+});
+
+//  update a post
+router.put('/:id', withAuth, (req, res) => {
+    Post.update({
+        title: req.body.title,
+        content: req.body.content
+    }, {
+        where:
+        {
+            id: req.params.id
+        }
+    }).then(dbPostData => {
+        if (!dbPostData) {
+            res.status(404).json({ message: 'No post found matching this id' });
+            return;
+        }
+        res.json(dbPostData);
+    })
+    .catch(err => {
+        console.log(err);
+        res.status(500).json(err);
+    });
+});
+
+//  delete a post
+router.delete('/:id', withAuth, (req, res) => {
+    Post.destroy({
+        where: 
+        {
+            id: req.params.id
+        }
+    }).then(dbPostData => {
+        if (!dbPostData) {
+            res.status(404).json({ message: 'No post found matching this id' });
+            return;
+        }
+        res.json(dbPostData);
+    }).catch(err => {
+        console.log(err);
+        res.status(500).json(err);
+    });
+});
+
+module.exports = router;
