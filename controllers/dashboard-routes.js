@@ -1,6 +1,5 @@
 const router = require('express').Router();
 const { Post, User, Comment } = require('../models');
-//check login status
 const withAuth = require('../utils/auth');
 
 //find all
